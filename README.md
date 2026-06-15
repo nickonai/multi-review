@@ -73,6 +73,30 @@
 Чем больше CLI доступно, тем выше покрытие. Если доступен только один — скилл
 работает, но выигрыш от разнообразия теряется.
 
+### Установка CLI (если их ещё нет)
+
+Достаточно поставить **любой один**. Для способов через `npm` нужен
+[Node.js 18+](https://nodejs.org/).
+
+```bash
+# Codex CLI (OpenAI)
+npm install -g @openai/codex
+# либо: curl -fsSL https://chatgpt.com/codex/install.sh | sh
+
+# Gemini CLI (Google)
+npm install -g @google/gemini-cli
+
+# Claude Code CLI (Anthropic)
+npm install -g @anthropic-ai/claude-code
+# либо (macOS/Linux/WSL): curl -fsSL https://claude.ai/install.sh | bash
+```
+
+После установки запустите CLI один раз и авторизуйтесь (вход через аккаунт или
+API-ключ). Подробные команды для всех ОС, способы через Homebrew и шаги
+авторизации — в
+[`multi-review/references/install-clis.md`](multi-review/references/install-clis.md).
+Можно просто попросить вашего агента: «установи Codex/Gemini/Claude CLI».
+
 ## Платформы (macOS / Linux / Windows)
 
 Скрипты скилла — это **bash на Unix-инструментах**. Поэтому:
@@ -265,6 +289,7 @@ multi-review/
     ├── SKILL.md         ← точка входа: назначение, режимы, рабочий процесс, правила
     ├── references/
     │   ├── cli-commands.md   ← команды CLI, сборка пакетов, обработка ошибок
+    │   ├── install-clis.md   ← как установить codex / gemini / claude
     │   ├── prompt-code.md    ← заметки по промпту режима кода
     │   ├── prompt-text.md    ← заметки по промпту режима текста
     │   ├── triage.md         ← разбор находок и формат финального отчёта

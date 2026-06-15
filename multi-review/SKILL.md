@@ -109,7 +109,8 @@ spec / plan / prompt / legal / marketing / generic), аудиторию и це�
 4. **Проверь доступные CLI.** Запусти блок проверки доступности из
    `references/cli-commands.md`. Должен быть доступен хотя бы один из codex /
    gemini / claude. Пропусти и отметь те, что отсутствуют или не
-   авторизованы. Если доступно ноль — остановись и сообщи пользователю.
+   авторизованы. Если доступно ноль — остановись, сообщи пользователю и
+   предложи установить любой из CLI по `references/install-clis.md`.
 
 5. **Запусти ревьюеров параллельно.** Один **отдельный** вызов инструмента
    Bash на каждый CLI, `run_in_background: true`, `timeout: 900000` (15
@@ -163,6 +164,7 @@ spec / plan / prompt / legal / marketing / generic), аудиторию и це�
 | Шаг | Файл |
 |------|------|
 | Сборка пакетов, проверка доступности CLI, команды ревьюеров | `references/cli-commands.md` |
+| Установка внешних CLI (codex / gemini / claude) | `references/install-clis.md` |
 | Заметки по промпту режима кода | `references/prompt-code.md` |
 | Заметки по промпту режима текста | `references/prompt-text.md` |
 | Правила разбора находок и формат финального отчёта | `references/triage.md` |
