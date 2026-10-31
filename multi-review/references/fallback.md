@@ -84,21 +84,25 @@
 
 ```bash
 # Codex
-codex exec --skip-git-repo-check --cd "<корень-контекста>" "<твой промпт>"
+codex exec -s read-only -c model_reasoning_effort="medium" --skip-git-repo-check --cd "<корень-контекста>" "<твой промпт>"
 
 # Claude
-claude --add-dir "<корень-контекста>" -p "<твой промпт>"
+claude --effort medium --add-dir "<корень-контекста>" -p "<твой промпт>"
 
 # Gemini (промпт через stdin)
 printf '%s' "<твой промпт>" | gemini -p "Follow the instructions from stdin. Output findings only." --approval-mode plan -o text
 ```
 
 - В Claude Code запускай каждый CLI отдельным вызовом инструмента `Bash` с
-  `run_in_background: true` и `timeout: 900000` — таймаут и параллельность даёт
+  `run_in_background: true` и `timeout: 960000` — таймаут и параллельность даёт
   сам харнесс, обёртка не нужна.
 - Если фоновый запуск или таймаут недоступны в твоём окружении — запусти
   ревьюеров последовательно и просто дождись каждого. Это медленнее, но рабочий
   вариант.
+- Уровень рассуждения: `medium` у Codex и Claude передаётся флагами выше; у
+  Gemini CLI такого флага нет (см. `cli-commands.md`).
+- Без обёртки статуса нет: код выхода каждого CLI смотри сам. Ненулевой код,
+  таймаут или пустой вывод — ревьюер пропущен, а не «находок нет».
 - Считывай вывод каждого CLI сам и переходи к разбору находок.
 
 ### 5. Разбор и отчёт

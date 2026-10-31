@@ -8,7 +8,9 @@
 # /tmp/multi-review and the per-reviewer timeout is always 900 seconds.
 # Results are written to <reviewer>.out / .status / .meta inside the working
 # directory. The wrapper always exits 0 so one failed reviewer does not cancel
-# the others.
+# the others. Exit 0 therefore says NOTHING about the review: the caller must read
+# <reviewer>.status (ok | empty | exit_N | timeout | not_found | stdin_missing |
+# no_python) and <reviewer>.meta. Only "ok" with a non-empty .out is a review.
 
 set -euo pipefail
 
@@ -127,6 +129,8 @@ try:
     output = completed.stdout or ""
     if returncode != 0:
         status = f"exit_{returncode}"
+    elif not output.strip():
+        status = "empty"
 except subprocess.TimeoutExpired as exc:
     returncode = 124
     status = "timeout"

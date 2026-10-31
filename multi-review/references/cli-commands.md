@@ -84,9 +84,49 @@ run-external-reviewer.sh <имя-ревьюера> --cwd <директория> 
   задачи — запускай их независимо и дождись всех.
 
 Обёртка пишет `<reviewer>.out`, `<reviewer>.status` и `<reviewer>.meta` в
-`/tmp/multi-review` и завершается успешно, чтобы один упавший ревьюер не отменил
-весь запуск. Флаг `--cwd` задаёт локальный корень контекста, из которого
-стартует CLI.
+`/tmp/multi-review` и **всегда завершается с кодом 0**, чтобы один упавший
+ревьюер не отменил весь запуск. Поэтому код выхода обёртки ничего не говорит об
+успехе ревью: после завершения каждого ревьюера обязательно прочитай его
+`.status` и `.meta` (см. «Результат ревьюера»). Флаг `--cwd` задаёт локальный
+корень контекста, из которого стартует CLI.
+
+Число ревьюеров ограничено тремя: по одному на CLI (codex, gemini, claude). Не
+запускай несколько экземпляров одного CLI и не добавляй других. Таймаут
+обёртки — 900 секунд на ревьюера; таймаут вызова Bash задавай чуть больше
+(`timeout: 960000`), иначе харнесс оборвёт вызов раньше, чем обёртка запишет
+статус `timeout`.
+
+## Уровень рассуждения (medium)
+
+Medium — это уровень reasoning effort, а не имя модели: модель не меняй и
+строку `medium` вместо алиаса модели не подставляй. Каждый провайдер задаёт
+уровень по-своему:
+
+| CLI | Как передать medium | Примечание |
+| --- | --- | --- |
+| codex | `-c model_reasoning_effort="medium"` | ключ конфигурации Codex; без флага берётся значение из `~/.codex/config.toml` |
+| claude | `--effort medium` | допустимые уровни в `claude --help`: low, medium, high, xhigh, max; не все модели поддерживают все уровни |
+| gemini | флага нет | Gemini CLI 0.39 не имеет параметра effort; глубину мышления задаёт модель и пользовательские настройки Gemini. Скилл их не меняет. Ограничение, а не ошибка: в отчёте не обещай medium для Gemini |
+
+## Результат ревьюера
+
+Wrapper exit 0 не значит, что ревью выполнено. Для каждого ревьюера прочитай
+`/tmp/multi-review/<reviewer>.status` и `<reviewer>.meta` (строка
+`returncode=`, `elapsed_seconds=`) и только потом открывай `.out`:
+
+| `.status` | Что значит | Действие |
+| --- | --- | --- |
+| `ok` | код выхода 0 и вывод не пуст | разбирать `.out` по `triage.md` |
+| `empty` | код выхода 0, но вывод пуст | не считать «находок нет»: ревьюер пропущен, записать причину |
+| `exit_N` | CLI упал (не авторизован, неверный флаг, лимит) | ревьюер пропущен; покажи только хвост `.out` (`tail -n 20`) |
+| `timeout` | не уложился в 900 с | ревьюер пропущен; частичный `.out` — не вердикт |
+| `not_found`, `no_python`, `stdin_missing` | CLI/интерпретатор/входной файл отсутствует | ревьюер пропущен или перейти на `fallback.md` |
+
+Только `ok` с непустым `.out` считается выполненным ревью. Упавший ревьюер или
+таймаут никогда не выдаётся за «проблем не найдено»: он попадает в
+«Пропущенные ревьюеры» с причиной из `.status`. Перед чтением `.out` проверь
+размер (`wc -c`); большой вывод читай `head`/`tail` и поиском по находкам, а не
+целиком без причины.
 
 ## Codex
 
@@ -98,7 +138,7 @@ run-external-reviewer.sh <имя-ревьюера> --cwd <директория> 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH" && \
 CONTEXT_ROOT=$(cat /tmp/multi-review/context_root.txt) && \
 ~/.claude/skills/multi-review/scripts/run-external-reviewer.sh codex --cwd "$CONTEXT_ROOT" -- \
-  codex exec --skip-git-repo-check --cd "$CONTEXT_ROOT" "$(cat /tmp/multi-review/prompt.md)"
+  codex exec -s read-only -c model_reasoning_effort="medium" --skip-git-repo-check --cd "$CONTEXT_ROOT" "$(cat /tmp/multi-review/prompt.md)"
 ```
 
 ## Claude
@@ -109,7 +149,7 @@ CONTEXT_ROOT=$(cat /tmp/multi-review/context_root.txt) && \
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH" && \
 CONTEXT_ROOT=$(cat /tmp/multi-review/context_root.txt) && \
 ~/.claude/skills/multi-review/scripts/run-external-reviewer.sh claude --cwd "$CONTEXT_ROOT" -- \
-  claude --add-dir "$CONTEXT_ROOT" -p "$(cat /tmp/multi-review/prompt.md)"
+  claude --effort medium --add-dir "$CONTEXT_ROOT" -p "$(cat /tmp/multi-review/prompt.md)"
 ```
 
 ## Gemini
@@ -152,11 +192,11 @@ MODE=$(cat /tmp/multi-review/mode.txt) && \
 | ошибка авторизации | Пропустить и записать: `[tool] authentication failed` |
 | таймаут | Обёртка записывает `timeout`, затраченное время и частичный вывод |
 | отсутствует stdin-файл | Обёртка записывает `stdin_missing`; пересобери входной файл и перезапусти |
-| пустой вывод | Записать: `[tool] returned no findings` |
-| ненулевой код выхода | Захватить сводку stderr и продолжить |
+| пустой вывод | Статус `empty`: записать `[tool] returned no output`, ревьюер пропущен |
+| ненулевой код выхода | Статус `exit_N`: записать причину из хвоста `.out`, ревьюер пропущен |
 
-Сбои внешних ревьюеров не блокирующие. Если успешных ревьюеров ноль —
-остановись и сообщи пользователю.
+Сбои внешних ревьюеров не блокирующие. Если ревьюеров со статусом `ok` ноль —
+остановись и сообщи пользователю: ревью не состоялось.
 
 ## Очистка
 
